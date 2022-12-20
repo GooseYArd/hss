@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 
 require 'hss'
+require 'shellwords'
 
 My_Handler = HSS::Handler.new(config: ENV['HSS_CONFIG'])
 
@@ -15,11 +16,14 @@ elsif ARGV == ['help'] || ARGV.empty?
 end
 
 short_host = ARGV.delete_at(ARGV.find_index { |x| x[0, 1] != '-' } || 0)
-args = ARGV.reduce('') do |acc, elem|
-  acc + " '" + elem.gsub(/([$"])/, '\1') + "'"
-end
-command = ENV['HSS_COMMAND'] || 'ssh'
-command.prepend('echo ') if ENV['HSS_DEBUG']
+
+command = if ENV['HSS_COMMAND']
+            Shellwords.split(ENV['HSS_COMMAND'])
+          else
+            ['ssh']
+          end
+
+command.insert(0, 'echo') if ENV['HSS_DEBUG']
 
 begin
   long_host = My_Handler.handle short_host
@@ -29,4 +33,4 @@ rescue NameError
 end
 
 $stdout.syswrite "\033]0;#{short_host}\007" if $stdout.tty? && $stdin.tty?
-exec "#{command} #{long_host} #{args}"
+exec(*command, *Shellwords.split(long_host), *ARGV)
